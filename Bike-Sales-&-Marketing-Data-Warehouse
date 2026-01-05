@@ -1,0 +1,151 @@
+-- DROP TABLE IF EXISTS common_dim.dim_date;
+-- DROP TABLE IF EXISTS common_dim.dim_region;
+-- DROP TABLE IF EXISTS common_dim.dim_address;
+-- DROP TABLE IF EXISTS common_dim.dim_business_partner;
+-- DROP TABLE IF EXISTS common_dim.dim_employees;
+-- DROP TABLE IF EXISTS common_dim.dim_product_category;
+-- DROP TABLE IF EXISTS sales_dm.fact_sales;
+-- DROP TABLE IF EXISTS marketing_dm.fact_marketing;
+
+
+-- COMMON DIMENSIONS
+
+CREATE TABLE common_dim.dim_date AS
+(
+SELECT
+	ROW_NUMBER() OVER (ORDER BY s.salesorder_id) AS date_key,
+	s.created_at AS date_id,
+	TO_DATE(CAST(s.created_at AS VARCHAR), 'YYYYMMDD') AS date,
+	s.fiscal_yearperiod AS fiscal_year_period,
+	EXTRACT(MONTH FROM TO_DATE(CAST(s.created_at as VARCHAR),'YYYYMMDD')) AS month,
+	EXTRACT(YEAR FROM TO_DATE(CAST(s.created_at as VARCHAR),'YYYYMMDD')) AS year
+FROM sap_bikes_source.sales_orders s 
+);
+
+CREATE TABLE common_dim.dim_region AS
+(
+SELECT DISTINCT 
+	ROW_NUMBER() OVER (ORDER BY name) AS region_key,
+	name
+FROM
+	(SELECT DISTINCT a.region AS name FROM sap_bikes_source.addresses a)
+subquery
+);
+
+CREATE TABLE common_dim.dim_address AS
+(
+SELECT
+	ROW_NUMBER() OVER (ORDER BY a.address_id) AS address_key,
+	a.address_id AS address_ID,
+	a.city AS city,
+	a.postal_code AS postal_code,
+	dr.region_key AS region_key,
+	a.latitude AS latitude,
+	a.longitude AS longitude
+FROM 
+	sap_bikes_source.addresses a
+	JOIN common_dim.dim_region dr ON a.region = dr.name
+);
+
+CREATE TABLE common_dim.dim_business_partner AS
+(
+SELECT
+	ROW_NUMBER() OVER (ORDER BY b.partnerid) AS partner_key,
+	b.partnerid AS partner_id,
+	b.addressid AS address_key,
+	b.companyname AS company_name
+FROM
+	sap_bikes_source.business_partners b
+);
+
+CREATE TABLE common_dim.dim_employees AS
+(
+SELECT
+	ROW_NUMBER() OVER (ORDER BY e.eemployee_id) AS employee_key,
+	e.name_first || ' ' || e.name_last AS employee_name
+FROM 
+	sap_bikes_source.employees e
+ORDER BY
+	employee_key ASC
+);
+
+CREATE TABLE common_dim.dim_product_category AS
+(
+SELECT
+	ROW_NUMBER() OVER (ORDER BY pc.prodcategory_id) AS product_categery_key,
+	pc.prodcategory_id,
+	pc.created_by,
+	pc.created_at
+FROM 
+	sap_bikes_source.product_categories pc
+	
+);
+
+-- SALES_DM FACT TABLE
+
+CREATE TABLE sales_dm.fact_sales2 AS
+(
+SELECT
+	dd.date_key,
+	bp.partner_key,
+	pc.product_category_key,
+	so.created_by,
+	COUNT(soi.salesorder_item) AS items_count,
+	COUNT(soi.product_id) AS transactions_count,	
+	SUM(so.gross_amount) AS gross_amount,
+	SUM(so.net_amount) AS net_amount,
+	SUM(so.tax_amount) AS tax_amount
+FROM 
+	sap_bikes_source.sales_orders so
+FULL OUTER JOIN common_dim.dim_business_partner bp 
+	ON so.partner_id = bp.partner_id
+FULL OUTER JOIN common_dim.dim_employees e
+	ON so.created_by = e.employee_key
+FULL OUTER JOIN common_dim.dim_date dd
+	ON so.created_at = dd.date_id
+
+FULL OUTER JOIN sap_bikes_source.sales_order_items soi
+	ON so.salesorder_id = soi.salesorder_id
+FULL OUTER JOIN sap_bikes_source.products pr
+	ON soi.product_id = pr.product_id
+FULL OUTER JOIN common_dim.dim_product_category pc
+	ON  pr.productcategory_id = pc.prodcategory_id
+GROUP BY 
+	dd.date_key
+	, bp.partner_key
+  	, e.employee_key
+	, pc.product_category_key
+	
+ORDER BY dd.date_key ASC	
+);
+
+-- MARKETING DM FACT TABLE 
+
+CREATE TABLE marketing_dm.fact_marketing AS
+(
+SELECT
+ 	dd.date_key,
+ 	dr.region_key,
+	COUNT(soi.salesorder_item) as items_count,
+	COUNT(soi.product_id) as transactions_count,
+	SUM(so.gross_amount) as gross_amount,
+	SUM(so.net_amount) as net_amount,
+	SUM(so.tax_amount) as tax_amount
+FROM 
+	sap_bikes_source.sales_orders so
+FULL OUTER JOIN sap_bikes_source.sales_order_items soi
+	ON so.salesorder_id = soi.salesorder_id 
+FULL OUTER JOIN common_dim.dim_date dd
+	ON so.created_at = dd.date_id
+FULL OUTER JOIN sap_bikes_source.business_partners bp
+	ON so.created_by = bp.createdby
+FULL OUTER JOIN common_dim.dim_address da
+	ON bp.addressid = da.address_id
+FULL OUTER JOIN common_dim.dim_region dr
+	ON dr.region_key = da.region_key
+
+GROUP BY
+	dd.date_key,
+	dr.region_key
+ORDER BY dd.date_key ASC
+);
