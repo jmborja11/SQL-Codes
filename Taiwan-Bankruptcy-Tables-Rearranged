@@ -1,0 +1,132 @@
+-- Dimension Tables
+CREATE TABLE financials_dim_tables.dim_company AS
+SELECT 
+	ROW_NUMBER () OVER (ORDER BY company_id) AS row_id,
+	company_id
+FROM cleaned.financials_cleaned;
+
+CREATE TABLE financials_dim_tables.dim_flags AS
+SELECT 
+	company_id,
+	liability_assets_flag,
+	net_income_flag,
+	bankrupt
+FROM cleaned.financials_cleaned;
+
+-- Fact Tables
+CREATE SCHEMA TW_bankrpcy_pred_db.financials_fact_tables;
+
+CREATE TABLE financials_fact_tables.fact_profitability AS
+SELECT 
+	company_id,
+	roac_before_interest_and_depreciation_before_interest,
+  	roaa_before_interest_and_pct_after_tax,
+ 	roab_before_interest_and_depreciation_after_tax,
+    operating_gross_margin,
+    realized_sales_gross_margin,
+    operating_profit_rate,
+    pre_tax_net_interest_rate,
+    after_tax_net_interest_rate,
+    non_industry_income_and_expenditure_to_revenue,
+    continuous_interest_rate_after_tax,
+    tax_rate_a,
+    gross_profit_to_sales,
+    net_income_to_total_assets,
+    net_income_to_stockholders_equity
+FROM cleaned.financials_cleaned;
+
+CREATE TABLE financials_fact_tables.fact_growth AS
+SELECT 
+	company_id,
+	realized_sales_gross_profit_growth_rate,
+	operating_profit_growth_rate,
+	after_tax_net_profit_growth_rate,
+	regular_net_profit_growth_rate,
+	continuous_net_profit_growth_rate,
+	total_asset_growth_rate,
+	net_value_growth_rate,
+	total_asset_return_growth_rate_ratio,
+	cash_reinvestment_pct
+FROM cleaned.financials_cleaned;
+
+CREATE TABLE financials_fact_tables.fact_liquidity AS
+SELECT
+	company_id,
+	current_ratio,
+	quick_ratio,
+	cash_to_total_assets,
+	quick_assets_to_total_assets,
+	current_assets_to_total_assets,
+	quick_assets_to_current_liability,
+	cash_to_current_liability,
+	current_liability_to_current_assets,
+	no_credit_interval
+FROM cleaned.financials_cleaned;
+
+CREATE TABLE financials_fact_tables.fact_debt_solvency AS
+SELECT
+	company_id,
+	interest_bearing_debt_interest_rate,
+	interest_expense_ratio,
+	total_debt_to_total_net_worth,
+	debt_ratio_pct,
+	net_worth_to_assets,
+	long_term_fund_suitability_ratio_a,
+	borrowing_dependency,
+	contingent_liabilities_to_net_worth,
+	operating_funds_to_liability,
+	current_liability_to_assets,
+	current_liabilities_to_liability,
+	working_capital_to_equity,
+	current_liabilities_to_equity,
+	long_term_liability_to_current_assets,
+	total_expense_to_assets,
+	current_liability_to_liability,
+	current_liability_to_equity,
+	equity_to_long_term_liability,
+	cash_flow_to_liability,
+	liability_to_equity,
+	equity_to_liability,
+	degree_of_financial_leverage_dfl,
+	interest_coverage_ratio_interest_expense_to_ebit
+FROM cleaned.financials_cleaned;
+
+CREATE TABLE financials_fact_tables.fact_efficiency_turnover AS
+SELECT
+	company_id,
+	total_asset_turnover,
+	accounts_receivable_turnover,
+	average_collection_days,
+	inventory_turnover_rate_times,
+	fixed_assets_turnover_frequency,
+	net_worth_turnover_rate_times,
+	inventory_to_working_capital,
+	inventory_to_current_liability,
+	retained_earnings_to_total_assets,
+	total_income_to_total_expense,
+	current_asset_turnover_rate,
+	quick_asset_turnover_rate,
+	working_capital_turnover_rate,
+	cash_turnover_rate,
+	cash_flow_to_sales,
+	fixed_assets_to_assets,
+	cash_flow_to_total_assets,
+	cfo_to_assets,
+	cash_flow_to_equity
+FROM cleaned.financials_cleaned;
+
+CREATE TABLE financials_fact_tables.fact_per_unit AS
+SELECT
+	company_id,
+	net_value_per_share_a,
+	net_value_per_share_b,
+	net_value_per_share_c,
+	cash_flow_per_share,
+	revenue_per_share_yuan,
+	operating_profit_per_share_yuan,
+	per_share_net_profit_before_tax_yuan,
+	persistent_eps_in_the_last_four_seasons,
+	revenue_per_person,
+	operating_profit_per_person,
+	allocation_rate_per_person
+FROM cleaned.financials_cleaned;
